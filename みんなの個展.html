@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>みんなの個展 翡翠ガパオ</title>
+  <style>
+    body {
+      background-color: #e0f5f2;
+      font-family: sans-serif;
+      color: #2b4c4c;
+      padding: 20px;
+    }
+    h1 {
+      color: #2b4c4c;
+    }
+    .warning {
+      color: red;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    #uploadForm {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    /* 画像選択ラベルに茶色い枠 */
+    #uploadForm label[for="imageInput"] {
+      border: 2px solid #8b5e3c;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background-color: #f3e5ab;
+      color: #2b4c4c;
+      font-weight: bold;
+      display: inline-block;
+      cursor: pointer;
+    }
+    input, button {
+      padding: 5px;
+      font-size: 14px;
+    }
+    button {
+      background-color: #b5d7cc;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: #2b4c4c;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #a2cabe;
+    }
+    .artwork {
+  border: 8px solid #8B4513; /* 濃い茶色 */
+  border-radius: 12px;
+  padding: 10px;
+  margin: 10px 0;
+  background-color: #f5f5f5;
+}
+
+    }
+    .artwork img {
+      width: 33vw; /* 画面幅の約1/3に調整 */
+      height: auto;
+      border-radius: 8px;
+    }
+    .like-button {
+      color: #c14444;
+      font-weight: bold;
+    }
+    .comment-box {
+      margin-top: 10px;
+    }
+    .preview-container {
+      position: relative;
+      display: none;
+    }
+    .preview-container img {
+      max-height: 150px;
+      border: 2px solid #88bbaa;
+      border-radius: 8px;
+    }
+    .preview-label {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: rgba(192,255,238,0.8);
+      color: #2b4c4c;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: bold;
+      border-bottom-right-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>みんなの個展 翡翠ガパオ</h1>
+  <div class="warning">※自分の作品のパスワードは覚えておくようにしておいてください!(すべて統一すると良いと思います)</div>
+
+  <div id="uploadForm">
+    <label for="imageInput">画像を選択</label>
+    <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="previewImage(event)" />
+    <input type="text" id="titleInput" placeholder="作品タイトル" style="width:150px;" />
+    <input type="text" id="idInput" placeholder="作品ID" style="width:100px;" />
+    <input type="text" id="passwordInput" placeholder="パスワード" style="width:100px;" />
+    <button onclick="addArtwork()">作品を追加</button>
+  </div>
+
+  <div class="preview-container" id="previewContainer">
+    <img id="preview" src="">
+    <div class="preview-label">プレビュー中</div>
+  </div>
+
+  <div id="artworks"></div>
+
+  <script>
+    let artworkList = JSON.parse(localStorage.getItem("artworks") || "[]");
+
+    function saveArtworks() {
+      localStorage.setItem("artworks", JSON.stringify(artworkList));
+    }
+
+    function renderArtworks() {
+      const container = document.getElementById("artworks");
+      container.innerHTML = "";
+      artworkList.forEach(art => {
+        const div = document.createElement("div");
+        div.className = "artwork";
+        div.setAttribute("data-id", art.id);
+        div.innerHTML = `
+          <h3>${art.title}</h3>
+          <img src="${art.image}" style="max-width: 33vw; height: auto;">
+
+        　<div>
+            <button class="like-button" onclick="likeArtwork('${art.id}')">♥ いいね (${art.likes || 0})</button>
+            <button onclick="resetLikes('${art.id}')">いいねリセット</button>
+            <button onclick="deleteArtwork('${art.id}')">削除</button>
+          </div>
+          <div class="comment-box">
+            <input type="text" maxlength="200" placeholder="コメントを書く" id="comment-${art.id}">
+            <button onclick="addComment('${art.id}')">コメント</button>
+            <ul>${(art.comments || []).map((c, i) => `
+              <li>
+                <span>${c.text}</span>
+                <button onclick="editComment('${art.id}', ${i})">編集</button>
+                <button onclick="deleteComment('${art.id}', ${i})">削除</button>
+              </li>
+            `).join('')}</ul>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addArtwork() {
+      const file = document.getElementById("imageInput").files[0];
+      const title = document.getElementById("titleInput").value.trim();
+      const id = document.getElementById("idInput").value.trim();
+      const password = document.getElementById("passwordInput").value.trim();
+
+      if (!file || !title || !id || !password) {
+        alert("すべての項目を入力してください");
+        return;
+      }
+      if (artworkList.some(a => a.id === id)) {
+        alert("そのIDは既に使われています");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        artworkList.push({ id, title, image: e.target.result, password, likes: 0, comments: [] });
+        saveArtworks();
+        renderArtworks();
+
+        // フォームのリセット
+        document.getElementById("imageInput").value = "";
+        document.getElementById("titleInput").value = "";
+        document.getElementById("idInput").value = "";
+        document.getElementById("passwordInput").value = "";
+        document.getElementById("previewContainer").style.display = "none";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function previewImage(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const preview = document.getElementById("preview");
+          preview.src = e.target.result;
+          document.getElementById("previewContainer").style.display = "inline-block";
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function likeArtwork(id) {
+      const art = artworkList.find(a => a.id === id);
+      if (!art) return;
+      art.likes = (art.likes || 0) + 1;
+      saveArtworks();
+      renderArtworks();
+    }
+
+    function resetLikes(id) {
+      const art = artworkList.find(a => a.id === id);
+      if (!art) return;
+      const inputPass = prompt("いいねをリセットするためのパスワードを入力してください");
+      if (inputPass !== art.password) {
+        alert("パスワードが違います");
+        return;
+      }
+      art.likes = 0;
+      saveArtworks();
+      renderArtworks();
+    }
+
+    function deleteArtwork(id) {
+      const index = artworkList.findIndex(a => a.id === id);
+      if (index === -1) return;
+      const pass = prompt("作品を削除するためのパスワードを入力してください");
+      if (pass !== artworkList[index].password) {
+        alert("パスワードが違います");
+        return;
+      }
+      if (!confirm("本当に削除しますか？")) return;
+      artworkList.splice(index, 1);
+      saveArtworks();
+      renderArtworks();
+    }
+
+    function addComment(id) {
+      const art = artworkList.find(a => a.id === id);
+      const input = document.getElementById(`comment-${id}`);
+      if (!input.value.trim()) return;
+      art.comments = art.comments || [];
+      art.comments.push({ text: input.value.trim() });
+      input.value = "";
+      saveArtworks();
+      renderArtworks();
+    }
+
+    function editComment(id, index) {
+      const art = artworkList.find(a => a.id === id);
+      const newText = prompt("コメントを編集してください", art.comments[index].text);
+      if (newText !== null) {
+        art.comments[index].text = newText;
+        saveArtworks();
+        renderArtworks();
+      }
+    }
+
+    function deleteComment(id, index) {
+      const art = artworkList.find(a => a.id === id);
+      art.comments.splice(index, 1);
+      saveArtworks();
+      renderArtworks();
+    }
+
+    renderArtworks();
+  </script>
+</body>
+</html>
